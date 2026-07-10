@@ -1,0 +1,77 @@
+using UnityEngine;
+
+public class UniversalAimLock : MonoBehaviour
+{
+    [Header("Aim Settings")]
+    public string enemyTag = "Enemy";
+    
+    [Tooltip("Is speed ko apne purane camera ki speed se match karein")]
+    public float aimSpeed = 15f; 
+    public float range = 50f;
+    
+    [Header("Head Aim Adjustments")]
+    public Vector3 headOffset = new Vector3(0f, 1.5f, 0f);
+
+    private Transform currentTarget;
+
+    // Update ki jagah LateUpdate use kiya hai taaki purane code se jhagda na ho
+    void LateUpdate() 
+    {
+        if (currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
+        {
+            FindClosestEnemy();
+        }
+        else
+        {
+            float distanceToTarget = Vector3.Distance(transform.position, currentTarget.position);
+            if (distanceToTarget > range)
+            {
+                currentTarget = null;
+                return;
+            }
+        }
+
+        LockOnTargetNative();
+    }
+
+    void FindClosestEnemy()
+    {
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag(enemyTag);
+        float shortestDistance = Mathf.Infinity;
+        GameObject nearestEnemy = null;
+
+        foreach (GameObject enemy in enemies)
+        {
+            float distanceToEnemy = Vector3.Distance(transform.position, enemy.transform.position);
+            
+            if (distanceToEnemy < shortestDistance && distanceToEnemy <= range)
+            {
+                shortestDistance = distanceToEnemy;
+                nearestEnemy = enemy;
+            }
+        }
+
+        if (nearestEnemy != null)
+        {
+            currentTarget = nearestEnemy.transform;
+        }
+    }
+
+    void LockOnTargetNative()
+    {
+        if (currentTarget != null)
+        {
+            Vector3 targetPosition = currentTarget.position + headOffset;
+            Vector3 direction = (targetPosition - transform.position).normalized;
+            
+            if (direction != Vector3.zero)
+            {
+                Quaternion lookRotation = Quaternion.LookRotation(direction);
+                
+                // Ye line game ke purane movement ke upar makkhan ki tarah slide karegi
+                transform.rotation = Quaternion.Lerp(transform.rotation, lookRotation, Time.deltaTime * aimSpeed);
+            }
+        }
+    }
+}
+
