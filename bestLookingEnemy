@@ -1,0 +1,156 @@
+using UnityEngine;
+
+public class UniversalAimLock : MonoBehaviour
+{
+    [Header("1. Basic Settings")]
+    public string enemyTag = "Enemy";
+    public float aimSpeed = 15f; 
+    public float range = 50f;
+    public Vector3 headOffset = new Vector3(0f, 1.5f, 0f);
+
+    [Header("2. TPS Mode")]
+    public bool isCharacterBody = true; 
+
+    [Header("3. ADVANCED SETTINGS (Adv)")]
+    public float maxAimAngle = 60f; 
+    public LayerMask obstacleMask; 
+
+    [Header("4. THREAT PRIORITY (Aapka Naya Logic)")]
+    [Tooltip("Dushman aapki taraf kitne angle se dekh raha ho, toh usko khatra mana jayega? (Default: 45)")]
+    public float enemyLookAngleThreshold = 45f;
+
+    [HideInInspector] public bool isMobileAiming = false;
+    private Transform currentTarget;
+    private Camera mainCamera; 
+
+    void Start()
+    {
+        mainCamera = Camera.main; 
+    }
+
+    void LateUpdate() 
+    {
+        bool isPressingAimFire = Input.GetMouseButton(0) || Input.GetMouseButton(1) || isMobileAiming;
+
+        if (isPressingAimFire)
+        {
+            if (currentTarget == null || !currentTarget.gameObject.activeInHierarchy || !IsTargetValid(currentTarget))
+            {
+                FindBestThreatEnemy(); // Naya function call kiya
+            }
+
+            LockOnTargetNative();
+        }
+        else
+        {
+            currentTarget = null;
+        }
+    }
+
+    // 🔥 AAPKA NAYA LOGIC YAHAN HAI 🔥
+    void FindBestThreatEnemy()
+    {
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag(enemyTag);
+        
+        float shortestDistLookingAtMe = Mathf.Infinity;
+        float shortestDistOverall = Mathf.Infinity;
+        
+        GameObject bestLookingEnemy = null; // Jo dushman mujhe dekh raha hai aur paas hai
+        GameObject bestOverallEnemy = null; // Jo dushman sabse paas hai (par mujhe nahi dekh raha)
+
+        foreach (GameObject enemy in enemies)
+        {
+            if (IsTargetValid(enemy.transform))
+            {
+                float distance = Vector3.Distance(transform.position, enemy.transform.position);
+
+                // 1. Check karo ki Dushman kidhar dekh raha hai
+                // Dushman se meri (player) taraf ki disha (direction)
+                Vector3 directionToMe = (transform.position - enemy.transform.position).normalized;
+                
+                // Dushman ke chehre (forward) aur meri disha ke bich ka angle
+                float angleEnemyLooking = Vector3.Angle(enemy.transform.forward, directionToMe);
+                bool isEnemyLookingAtMe = angleEnemyLooking < enemyLookAngleThreshold;
+
+                // 2. Logic Filter
+                if (isEnemyLookingAtMe) 
+                {
+                    // Agar enemy mujhe dekh raha hai, toh 'Looking' wale list me best dhundho
+                    if (distance < shortestDistLookingAtMe)
+                    {
+                        shortestDistLookingAtMe = distance;
+                        bestLookingEnemy = enemy;
+                    }
+                }
+                
+                // Overall paas wale ko bhi track karo, in case koi nahi dekh raha ho
+                if (distance < shortestDistOverall)
+                {
+                    shortestDistOverall = distance;
+                    bestOverallEnemy = enemy;
+                }
+            }
+        }
+
+        // 3. FINAL FAISLA (Target kisko banaye?)
+        if (bestLookingEnemy != null)
+        {
+            // First Priority: Jo dekh raha hai (aur unme se jo paas hai)
+            currentTarget = bestLookingEnemy.transform;
+        }
+        else if (bestOverallEnemy != null)
+        {
+            // Second Priority: Agar koi nahi dekh raha, toh simple jo sabse paas hai
+            currentTarget = bestOverallEnemy.transform;
+        }
+        else
+        {
+            currentTarget = null;
+        }
+    }
+
+    bool IsTargetValid(Transform target)
+    {
+        float distance = Vector3.Distance(transform.position, target.position);
+        if (distance > range) return false;
+
+        if (mainCamera != null)
+        {
+            Vector3 directionToTarget = (target.position - mainCamera.transform.position).normalized;
+            float angle = Vector3.Angle(mainCamera.transform.forward, directionToTarget);
+            if (angle > maxAimAngle / 2f) return false; 
+        }
+
+        Vector3 rayStart = transform.position + new Vector3(0, 1f, 0); 
+        Vector3 targetHeadPos = target.position + headOffset;
+        Vector3 rayDir = targetHeadPos - rayStart;
+
+        if (Physics.Raycast(rayStart, rayDir.normalized, out RaycastHit hit, distance, obstacleMask))
+        {
+            return false; 
+        }
+
+        return true; 
+    }
+
+    void LockOnTargetNative()
+    {
+        if (currentTarget != null)
+        {
+            Vector3 targetPosition = currentTarget.position + headOffset;
+            Vector3 direction = targetPosition - transform.position;
+            
+            if (isCharacterBody) direction.y = 0; 
+
+            if (direction != Vector3.zero)
+            {
+                Quaternion lookRotation = Quaternion.LookRotation(direction);
+                transform.rotation = Quaternion.Lerp(transform.rotation, lookRotation, Time.deltaTime * aimSpeed);
+            }
+        }
+    }
+
+    public void OnAimButtonPressed() { isMobileAiming = true; }
+    public void OnAimButtonReleased() { isMobileAiming = false; }
+}
+
