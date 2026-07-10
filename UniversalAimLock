@@ -1,0 +1,68 @@
+using UnityEngine;
+
+public class UniversalAimLock : MonoBehaviour
+{
+    [Header("Aim Settings")]
+    public string enemyTag = "Enemy"; // Apne bot enemies me ye Tag laga de
+    public float aimSpeed = 10f;      // Aim kitni jaldi lock hoga
+    public float range = 50f;         // Kitni door tak aim lock kaam karega
+    
+    [Header("Head Aim Adjustments")]
+    // Agar aim pet/chest par jaa raha hai, toh Y value badha de (jaise 1.5)
+    public Vector3 headOffset = new Vector3(0f, 1.5f, 0f); 
+
+    private Transform currentTarget;
+
+    void Update()
+    {
+        FindClosestEnemy();
+        LockOnTarget();
+    }
+
+    void FindClosestEnemy()
+    {
+        // Sare enemies ko unke tag se dhundhegi bina purane code ko chhede
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag(enemyTag);
+        float shortestDistance = Mathf.Infinity;
+        GameObject nearestEnemy = null;
+
+        foreach (GameObject enemy in enemies)
+        {
+            float distanceToEnemy = Vector3.Distance(transform.position, enemy.transform.position);
+            
+            // Check karega ki kaun sabse paas hai aur range ke andar hai
+            if (distanceToEnemy < shortestDistance && distanceToEnemy <= range)
+            {
+                shortestDistance = distanceToEnemy;
+                nearestEnemy = enemy;
+            }
+        }
+
+        if (nearestEnemy != null)
+        {
+            currentTarget = nearestEnemy.transform;
+        }
+        else
+        {
+            currentTarget = null;
+        }
+    }
+
+    void LockOnTarget()
+    {
+        // Agar koi enemy mila, toh aim lock karega
+        if (currentTarget != null)
+        {
+            // Enemy ki position + head ki height
+            Vector3 targetPosition = currentTarget.position + headOffset;
+            
+            // Us direction me dekhne ka logic
+            Vector3 direction = (targetPosition - transform.position).normalized;
+            Quaternion lookRotation = Quaternion.LookRotation(direction);
+            
+            // Smoothly aim ko ghuma kar lock karna
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * aimSpeed);
+        }
+    }
+}
+
