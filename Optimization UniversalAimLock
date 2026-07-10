@@ -1,0 +1,78 @@
+using UnityEngine;
+
+public class UniversalAimLock : MonoBehaviour
+{
+    [Header("Aim Settings")]
+    public string enemyTag = "Enemy";
+    public float aimSpeed = 10f;
+    public float range = 50f;
+    
+    [Header("Head Aim Adjustments")]
+    public Vector3 headOffset = new Vector3(0f, 1.5f, 0f);
+
+    private Transform currentTarget;
+
+    void Update()
+    {
+        // LOGIC 1: Check karna ki kya hamare paas koi zinda target hai
+        if (currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
+        {
+            // Agar target mar gaya ya gayab ho gaya, toh naya dhundho
+            FindClosestEnemy();
+        }
+        else
+        {
+            // LOGIC 2: Agar target zinda hai, toh check karo ki range ke andar hai ya bhag gaya
+            float distanceToTarget = Vector3.Distance(transform.position, currentTarget.position);
+            if (distanceToTarget > range)
+            {
+                currentTarget = null; // Range se bahar gaya, lock tod do
+                return; // Next frame me naya target dhundhega
+            }
+        }
+
+        // Aim Lock hamesha chalega (agar target hai toh)
+        LockOnTarget();
+    }
+
+    void FindClosestEnemy()
+    {
+        // Ye bhari kaam ab sirf tabhi hoga jab target mar jayega (Super Optimized!)
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag(enemyTag);
+        float shortestDistance = Mathf.Infinity;
+        GameObject nearestEnemy = null;
+
+        foreach (GameObject enemy in enemies)
+        {
+            float distanceToEnemy = Vector3.Distance(transform.position, enemy.transform.position);
+            
+            if (distanceToEnemy < shortestDistance && distanceToEnemy <= range)
+            {
+                shortestDistance = distanceToEnemy;
+                nearestEnemy = enemy;
+            }
+        }
+
+        if (nearestEnemy != null)
+        {
+            currentTarget = nearestEnemy.transform;
+        }
+    }
+
+    void LockOnTarget()
+    {
+        if (currentTarget != null)
+        {
+            Vector3 targetPosition = currentTarget.position + headOffset;
+            Vector3 direction = (targetPosition - transform.position).normalized;
+            
+            // Error se bachne ke liye check (agar by chance direction 0 ho)
+            if (direction != Vector3.zero)
+            {
+                Quaternion lookRotation = Quaternion.LookRotation(direction);
+                transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * aimSpeed);
+            }
+        }
+    }
+}
+
