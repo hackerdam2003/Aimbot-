@@ -1,0 +1,84 @@
+using UnityEngine;
+
+public class UniversalAimLock : MonoBehaviour
+{
+    [Header("Aim Settings (TPS Mode)")]
+    public string enemyTag = "Enemy";
+    public float aimSpeed = 15f; 
+    public float range = 50f;
+    
+    [Header("Head Aim Adjustments")]
+    public Vector3 headOffset = new Vector3(0f, 1.5f, 0f);
+
+    [Header("TPS Specific")]
+    [Tooltip("Agar ye True hai, toh character hawa me aage nahi jhukega, sirf Left-Right ghumega.")]
+    public bool isCharacterBody = true; 
+
+    private Transform currentTarget;
+
+    void LateUpdate() 
+    {
+        if (currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
+        {
+            FindClosestEnemy();
+        }
+        else
+        {
+            float distanceToTarget = Vector3.Distance(transform.position, currentTarget.position);
+            if (distanceToTarget > range)
+            {
+                currentTarget = null;
+                return;
+            }
+        }
+
+        LockOnTargetNative();
+    }
+
+    void FindClosestEnemy()
+    {
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag(enemyTag);
+        float shortestDistance = Mathf.Infinity;
+        GameObject nearestEnemy = null;
+
+        foreach (GameObject enemy in enemies)
+        {
+            float distanceToEnemy = Vector3.Distance(transform.position, enemy.transform.position);
+            
+            if (distanceToEnemy < shortestDistance && distanceToEnemy <= range)
+            {
+                shortestDistance = distanceToEnemy;
+                nearestEnemy = enemy;
+            }
+        }
+
+        if (nearestEnemy != null)
+        {
+            currentTarget = nearestEnemy.transform;
+        }
+    }
+
+    void LockOnTargetNative()
+    {
+        if (currentTarget != null)
+        {
+            Vector3 targetPosition = currentTarget.position + headOffset;
+            Vector3 direction = targetPosition - transform.position;
+            
+            // 🔥 TPS MAGIC: Agar ye script character body par hai, toh usko aage/peeche jhukne se rokega
+            if (isCharacterBody)
+            {
+                direction.y = 0; 
+            }
+
+            if (direction != Vector3.zero)
+            {
+                Quaternion lookRotation = Quaternion.LookRotation(direction);
+                
+                // Camera aur movement controls ke sath smooth blending
+                transform.rotation = Quaternion.Lerp(transform.rotation, lookRotation, Time.deltaTime * aimSpeed);
+            }
+        }
+    }
+}
+
