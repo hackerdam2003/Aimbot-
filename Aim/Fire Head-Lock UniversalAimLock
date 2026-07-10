@@ -1,0 +1,110 @@
+using UnityEngine;
+
+public class UniversalAimLock : MonoBehaviour
+{
+    [Header("Aim Settings (Aim/Fire Mode)")]
+    public string enemyTag = "Enemy";
+    public float aimSpeed = 15f; 
+    public float range = 50f;
+    
+    [Header("Head Aim Adjustments")]
+    public Vector3 headOffset = new Vector3(0f, 1.5f, 0f);
+
+    [Header("TPS Specific")]
+    [Tooltip("Tick = Character aage nahi jhukega. Untick = Camera ki tarah upar/niche ghumega.")]
+    public bool isCharacterBody = true; 
+
+    // Mobile buttons ke liye variable
+    [HideInInspector] public bool isMobileAiming = false;
+
+    private Transform currentTarget;
+
+    void LateUpdate() 
+    {
+        // PC MOUSE CHECK: 0 = Left Click (Fire), 1 = Right Click (Aim)
+        bool isPressingAimFire = Input.GetMouseButton(0) || Input.GetMouseButton(1) || isMobileAiming;
+
+        if (isPressingAimFire)
+        {
+            // Sirf jab Aim/Fire daba ho, tabhi dushman dhundho aur lock karo
+            if (currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
+            {
+                FindClosestEnemy();
+            }
+            else
+            {
+                float distanceToTarget = Vector3.Distance(transform.position, currentTarget.position);
+                if (distanceToTarget > range)
+                {
+                    currentTarget = null;
+                    return;
+                }
+            }
+
+            LockOnTargetNative();
+        }
+        else
+        {
+            // Jaise hi button chhodenge, aim lock turant hat jayega taaki aap normal ghum sakein
+            currentTarget = null;
+        }
+    }
+
+    void FindClosestEnemy()
+    {
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag(enemyTag);
+        float shortestDistance = Mathf.Infinity;
+        GameObject nearestEnemy = null;
+
+        foreach (GameObject enemy in enemies)
+        {
+            float distanceToEnemy = Vector3.Distance(transform.position, enemy.transform.position);
+            
+            if (distanceToEnemy < shortestDistance && distanceToEnemy <= range)
+            {
+                shortestDistance = distanceToEnemy;
+                nearestEnemy = enemy;
+            }
+        }
+
+        if (nearestEnemy != null)
+        {
+            currentTarget = nearestEnemy.transform;
+        }
+    }
+
+    void LockOnTargetNative()
+    {
+        if (currentTarget != null)
+        {
+            Vector3 targetPosition = currentTarget.position + headOffset;
+            Vector3 direction = targetPosition - transform.position;
+            
+            if (isCharacterBody)
+            {
+                direction.y = 0; 
+            }
+
+            if (direction != Vector3.zero)
+            {
+                Quaternion lookRotation = Quaternion.LookRotation(direction);
+                transform.rotation = Quaternion.Lerp(transform.rotation, lookRotation, Time.deltaTime * aimSpeed);
+            }
+        }
+    }
+
+    // --- MOBILE UI BUTTONS KE LIYE (Bina code chhede) ---
+    
+    // Isko Mobile ke Fire/Aim button ke "Pointer Down" (dabane par) me lagayein
+    public void OnAimButtonPressed()
+    {
+        isMobileAiming = true;
+    }
+
+    // Isko Mobile ke Fire/Aim button ke "Pointer Up" (chhodne par) me lagayein
+    public void OnAimButtonReleased()
+    {
+        isMobileAiming = false;
+    }
+}
+
